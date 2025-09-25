@@ -112,21 +112,23 @@ document.addEventListener("DOMContentLoaded", () => {
     const studentItems = classData.studentIds.map(studentId => {
         const user = data.users.find(u => u.id === studentId);
         const student = data.students[studentId];
-        const marksCount = student.marks.length;
-        const minusPoints = Math.floor(marksCount / 3);
+        const totalMarksCount = student.marks.length;
+        const minusPoints = Math.floor(totalMarksCount / 3);
+        const displayMarksCount = totalMarksCount % 3;
         const hasMinusPointsClass = minusPoints > 0 ? 'has-minus-points' : '';
         const profilePic = user.profilePicture || defaultProfilePic;
 
         return `
             <li class="student-item ${hasMinusPointsClass}">
                 <div class="student-details">
-                    <img src="${profilePic}" alt="Profielfoto" class="profile-pic">
+                    <img src="${profilePic}" alt="Profielfoto" class="profile-pic" onerror="this.src='${defaultProfilePic}'">
                     <div class="student-info">
-                        ${student.name} (Streepjes: <span>${marksCount}</span> | Minpunten: <span class="${minusPoints > 0 ? 'minus-points' : ''}">${minusPoints}</span>)
+                        ${student.name} (Streepjes: <span>${displayMarksCount}</span> | Minpunten: <span class="${minusPoints > 0 ? 'minus-points' : ''}">${minusPoints}</span>)
                     </div>
                 </div>
                 <div class="student-actions">
                     <button class="details-btn" data-student-id="${studentId}">Details</button>
+                    <button class="edit-btn" data-student-id="${studentId}" data-class-name="${className}">Bewerk</button>
                     <button class="add-mark-btn" data-student-id="${studentId}" data-class-name="${className}">+ Streepje</button>
                 </div>
                 <div class="student-marks-details" id="details-${studentId}"></div>
@@ -147,6 +149,10 @@ document.addEventListener("DOMContentLoaded", () => {
     document.querySelectorAll('.details-btn').forEach(button => {
         button.addEventListener('click', handleToggleDetails);
     });
+
+    document.querySelectorAll('.edit-btn').forEach(button => {
+        button.addEventListener('click', (e) => renderEditStudentModal(e.target.dataset.studentId, e.target.dataset.className));
+    });
   }
 
   /**
@@ -155,8 +161,9 @@ document.addEventListener("DOMContentLoaded", () => {
   function renderStudentView() {
     const user = data.users.find(u => u.id === currentUser.id);
     const studentData = data.students[currentUser.id];
-    const marksCount = studentData.marks.length;
-    const minusPoints = Math.floor(marksCount / 3);
+    const totalMarksCount = studentData.marks.length;
+    const minusPoints = Math.floor(totalMarksCount / 3);
+    const displayMarksCount = totalMarksCount % 3;
     const minusPointsClass = minusPoints > 0 ? 'minus-points' : '';
     const profilePic = user.profilePicture || defaultProfilePic;
 
@@ -172,9 +179,9 @@ document.addEventListener("DOMContentLoaded", () => {
                 <h2>Overzicht voor ${studentData.name}</h2>
                 <button class="settings-btn" title="Instellingen">⚙️</button>
             </div>
-             <img src="${profilePic}" alt="Profielfoto" class="profile-pic" style="margin: 0 auto 1rem; display: block; width: 80px; height: 80px;">
+             <img src="${profilePic}" alt="Profielfoto" class="profile-pic" style="margin: 0 auto 1rem; display: block; width: 80px; height: 80px;" onerror="this.src='${defaultProfilePic}'">
             <div class="marks-summary">
-                <p>Totaal aantal streepjes: <strong>${marksCount}</strong></p>
+                <p>Huidige streepjes: <strong>${displayMarksCount}</strong></p>
                 <p>Totaal aantal minpunten: <strong class="${minusPointsClass}">${minusPoints}</strong></p>
             </div>
             <h3>Details van de streepjes:</h3>
@@ -195,6 +202,12 @@ document.addEventListener("DOMContentLoaded", () => {
     const user = data.users.find(u => u.id === currentUser.id);
     const studentData = user.role === 'student' ? data.students[user.id] : null;
     const name = studentData ? studentData.name : user.name;
+    const isStudent = user.role === 'student';
+    const nameReadonly = isStudent ? 'readonly' : '';
+    const profilePictureHTML = isStudent ? `<img src="${user.profilePicture || defaultProfilePic}" alt="Profielfoto" class="profile-pic" style="width: 80px; height: 80px; margin-top: 1rem;" onerror="this.src='${defaultProfilePic}'">` :
+        `<input type="file" id="profilePictureInput" accept="image/*">
+         <button type="button" onclick="document.getElementById('profilePictureInput').click()">Kies een bestand</button>
+         <img id="profile-preview" src="${user.profilePicture || defaultProfilePic}" alt="Profielfoto preview" class="profile-pic" style="width: 80px; height: 80px; margin-top: 1rem;" onerror="this.src='${defaultProfilePic}'">`;
 
     app.innerHTML = `
         <div id="settings-view" class="card">
@@ -202,14 +215,24 @@ document.addEventListener("DOMContentLoaded", () => {
                 <h2>Instellingen</h2>
                 <button id="back-btn" title="Terug">⬅️</button>
             </div>
+            <div class="form-group">
+                <div class="theme-switch-wrapper">
+                    <label for="theme-switch">Donkere modus</label>
+                    <label class="theme-switch">
+                        <input type="checkbox" id="theme-switch">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+            </div>
+            <hr>
             <form id="settings-form" class="settings-form">
                 <div class="form-group">
                     <label for="name">Naam</label>
-                    <input type="text" id="name" value="${name}" required>
+                    <input type="text" id="name" value="${name}" required ${nameReadonly}>
                 </div>
                 <div class="form-group">
-                    <label for="profilePicture">Profielfoto URL</label>
-                    <input type="text" id="profilePicture" value="${user.profilePicture || ''}" placeholder="https://voorbeeld.com/foto.jpg">
+                    <label for="profilePicture">Profielfoto</label>
+                    ${profilePictureHTML}
                 </div>
                 
                 <hr>
@@ -237,6 +260,32 @@ document.addEventListener("DOMContentLoaded", () => {
 
     document.getElementById('back-btn').addEventListener('click', routeApp);
     document.getElementById('settings-form').addEventListener('submit', handleSaveSettings);
+    
+    // Logica voor dark mode toggle
+    const themeSwitch = document.getElementById('theme-switch');
+    themeSwitch.checked = localStorage.getItem('theme') === 'dark'; // Zet de schakelaar goed
+    themeSwitch.addEventListener('change', (e) => {
+        if (e.target.checked) {
+            document.body.classList.add('dark-mode');
+            localStorage.setItem('theme', 'dark');
+        } else {
+            document.body.classList.remove('dark-mode');
+            localStorage.setItem('theme', 'light');
+        }
+    });
+
+    // Preview voor profielfoto
+    const profileInput = document.getElementById('profilePictureInput');
+    if (profileInput) {
+        profileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (event) => document.getElementById('profile-preview').src = event.target.result;
+                reader.readAsDataURL(file);
+            }
+        });
+    }
   }
 
   // --- EVENT HANDLERS ---
@@ -362,6 +411,83 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  /**
+   * Toont een modal om de gegevens van een leerling te bewerken.
+   * @param {string} studentId 
+   * @param {string} className 
+   */
+  function renderEditStudentModal(studentId, className) {
+    const student = data.students[studentId];
+    const user = data.users.find(u => u.id === studentId);
+
+    const modalOverlay = document.createElement('div');
+    modalOverlay.className = 'modal-overlay';
+
+    modalOverlay.innerHTML = `
+        <div class="modal">
+            <div class="modal-header">
+                <h3>Bewerk ${student.name}</h3>
+                <button class="modal-close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="edit-student-form">
+                    <div class="form-group">
+                        <label for="student-name">Naam</label>
+                        <input type="text" id="student-name" value="${student.name}" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="student-profile-pic">Profielfoto</label>
+                        <input type="file" id="student-profile-pic-input" accept="image/*">
+                        <button type="button" onclick="document.getElementById('student-profile-pic-input').click()">Kies een bestand</button>
+                        <img id="student-profile-preview" src="${user.profilePicture || defaultProfilePic}" alt="Profielfoto preview" class="profile-pic" style="width: 80px; height: 80px; margin-top: 1rem;" onerror="this.src='${defaultProfilePic}'">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button id="cancel-modal-btn">Annuleren</button>
+                <button id="save-student-btn">Opslaan</button>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(modalOverlay);
+
+    const closeModal = () => document.body.removeChild(modalOverlay);
+
+    // Event listeners
+    modalOverlay.querySelector('.modal-close-btn').addEventListener('click', closeModal);
+    modalOverlay.querySelector('#cancel-modal-btn').addEventListener('click', closeModal);
+
+    modalOverlay.querySelector('#student-profile-pic-input').addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (event) => modalOverlay.querySelector('#student-profile-preview').src = event.target.result;
+            reader.readAsDataURL(file);
+        }
+    });
+
+    modalOverlay.querySelector('#save-student-btn').addEventListener('click', () => {
+        const newName = modalOverlay.querySelector('#student-name').value.trim();
+        const newProfilePic = modalOverlay.querySelector('#student-profile-preview').src;
+
+        if (!newName) {
+            showNotification('Naam mag niet leeg zijn.', 'error');
+            return;
+        }
+
+        // Update data
+        data.students[studentId].name = newName;
+        const userToUpdate = data.users.find(u => u.id === studentId);
+        if (userToUpdate) {
+            userToUpdate.profilePicture = newProfilePic;
+        }
+
+        closeModal();
+        renderStudentListForTeacher(className);
+        showNotification('Leerlinggegevens opgeslagen!');
+    });
+  }
 
   /**
    * Toont of verbergt de details van de streepjes van een leerling
@@ -432,20 +558,26 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Haal waarden op
     const name = document.getElementById('name').value;
-    const profilePicture = document.getElementById('profilePicture').value;
     const currentPassword = document.getElementById('currentPassword').value;
     const newPassword = document.getElementById('newPassword').value;
     const confirmPassword = document.getElementById('confirmPassword').value;
 
     const user = data.users.find(u => u.id === currentUser.id);
 
-    // Naam en profielfoto bijwerken
+    // Alleen leerkrachten kunnen hun eigen naam en foto aanpassen.
     if (user.role === 'teacher') {
+        // Naam bijwerken
         user.name = name;
-    } else {
-        data.students[user.id].name = name;
+
+        // Profielfoto bijwerken
+        const profilePreview = document.getElementById('profile-preview');
+        if (profilePreview) {
+            const profilePictureDataUrl = profilePreview.src;
+            user.profilePicture = profilePictureDataUrl;
+            currentUser.profilePicture = profilePictureDataUrl;
+        }
+        currentUser.name = name;
     }
-    user.profilePicture = profilePicture;
 
     // Wachtwoord bijwerken (indien ingevuld)
     if (currentPassword || newPassword || confirmPassword) {
@@ -465,8 +597,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     // Update currentUser en sessionStorage
-    currentUser.name = user.role === 'teacher' ? name : currentUser.name; // Naam van leerkracht zit in currentUser
-    currentUser.profilePicture = profilePicture;
     sessionStorage.setItem('currentUser', JSON.stringify(currentUser));
 
     // Toon succesbericht en ga terug
@@ -495,6 +625,11 @@ document.addEventListener("DOMContentLoaded", () => {
    * Initialiseert de applicatie
    */
   function init() {
+    // Pas het thema toe op basis van localStorage
+    if (localStorage.getItem('theme') === 'dark') {
+        document.body.classList.add('dark-mode');
+    }
+
     // Controleer of er een gebruiker in sessionStorage zit (bv. na een refresh)
     const storedUser = sessionStorage.getItem('currentUser');
     if (storedUser) {
